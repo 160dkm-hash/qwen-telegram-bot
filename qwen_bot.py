@@ -35,12 +35,12 @@ ENDPOINTS = {
 }
 
 # ─── Global Current Endpoint ───
-current_endpoint_id = "2"  # Default: 27B model
+current_endpoint_id = "2"
 def get_current_endpoint():
     return ENDPOINTS[current_endpoint_id]
 
 if not BOT_TOKEN:
-    print("❌ Missing TELEGRAM_BOT_TOKEN! Set it in Render Environment Variables")
+    print("❌ Missing TELEGRAM_BOT_TOKEN!")
     sys.exit(1)
 
 # ─── Qwen Client ───
@@ -60,8 +60,7 @@ start_time = time.time()
 # ─── Logging ───
 def log(msg):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    line = f"[{timestamp}] {msg}\n"
-    print(line.strip())
+    print(f"[{timestamp}] {msg}")
 
 # ─── Handlers ───
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -82,7 +81,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conversations[update.effective_user.id] = []
     await update.message.reply_text("✅ Chat history cleared!")
-    log(f"User {update.effective_user.id} — /clear")
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ep = get_current_endpoint()
@@ -91,14 +89,12 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🟢 Bot is Running!\n\n"
         f"📌 Model: {ep['name']}\n"
         f"🔗 Endpoint: {ep['base_url']}\n"
-        f"🕒 Uptime: {uptime}\n"
-        f"💬 History limit: {MAX_HISTORY} messages"
+        f"🕒 Uptime: {uptime}"
     )
 
 async def cmd_endpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global current_endpoint_id, client
     args = context.args
-    current = get_current_endpoint()
     
     if not args:
         list_text = "📋 Available Models:\n\n"
@@ -115,20 +111,18 @@ async def cmd_endpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     if new_id == current_endpoint_id:
-        await update.message.reply_text(f"✅ Already using {current['name']}!")
+        await update.message.reply_text("✅ Already using that model!")
         return
     
     current_endpoint_id = new_id
     client = create_client()
-    new_ep = get_current_endpoint()
     conversations[update.effective_user.id] = []
+    new_ep = get_current_endpoint()
     
     await update.message.reply_text(
-        f"🔄 Switched!\n\n"
-        f"✅ Now: {new_ep['name']}\n"
-        f"💬 Chat history cleared."
+        f"🔄 Switched!\n\n✅ Now: {new_ep['name']}\n💬 Chat history cleared."
     )
-    log(f"User {update.effective_user.id} → endpoint {new_id}")
+    log(f"Switched to endpoint {new_id}")
 
 async def cmd_zip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -145,7 +139,6 @@ async def cmd_zip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_document(f, filename=f"chat_{user_id}.zip")
 
     zip_path.unlink(missing_ok=True)
-    log(f"User {user_id} — downloaded history")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -187,16 +180,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     buffer = ""
 
         conversations[user_id].append({"role": "assistant", "content": full_reply})
-        log(f"User {user_id} — msg sent ({len(full_reply)} chars)")
 
     except Exception as e:
-        err_msg = (
-            f"❌ Error: {str(e)[:150]}\n\n"
-            f"💡 Try switching models with /endpoint\n"
-            f"Or check if the endpoint server is online"
-        )
+        err_msg = f"❌ Error: {str(e)[:150]}\n\n💡 Try /endpoint to switch models"
         await update.message.reply_text(err_msg)
-        log(f"ERROR — {e}")
+        log(f"ERROR: {e}")
 
 # ─── Run Bot ───
 def main():
@@ -210,7 +198,8 @@ def main():
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
         log(f"✅ Bot ONLINE | Default: {get_current_endpoint()['name']}")
-        application.run_polling()
+        # drop_pending_updates=True = ignore old messages on restart
+        application.run_polling(drop_pending_updates=True)
     except Exception as e:
         log(f"FATAL ERROR — {e}")
         sys.exit(1)
